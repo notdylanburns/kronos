@@ -18,7 +18,7 @@ From the root directory of the code repository, run `make uninstall` as root. Th
 
 ## Using `libkronos`
 
-Annotated example programs using the library can be found in the `examples` directory. They can be compiled and ran using `make [filename]` inside the folder. (todo) When compiling your own files, be sure to link the required libraries using the compiler arguments:
+Annotated example programs using the library can be found in the `examples` directory. They can be compiled and ran using `make [filename]` inside the folder (todo). When compiling your own files, be sure to link the required libraries using the compiler arguments:
  `-lm -lpthread -lkronos`
  i.e. Compiling `main.c`with `gcc` would be: 
  `gcc -o main -lm -lpthread -lkronos main.c`.
