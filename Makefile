@@ -1,21 +1,27 @@
 CC := gcc
-CFLAGS := -Wall -g
+CFLAGS := -Wall -Werror -fpic
 LDFLAGS := -lpthread -lm
-TARGET := main
 
-SRCS := $(wildcard *.c)
-OBJS := $(patsubst %.c,%.o,$(SRCS))
+SRCS := $(wildcard src/*.c)
+OBJS := $(patsubst src/%.c, obj/%.o, $(SRCS)) 
+TARGET := libkronos.so
 
-all: $(TARGET)
+all: build remove
+build: $(TARGET)
 $(TARGET): $(OBJS)
-	$(CC) -o $@ $(LDFLAGS) $^
-	rm -f $^
-%.o: %.c
-	$(CC) $(CFLAGS) -c $<
-clean:
-	rm -rf $(TARGET) *.o
+	$(CC) -shared -o $(TARGET) $^
 
-debug: $(TARGET)
-	gdb --quiet -ex run -ex quit $(TARGET)
+objects: $(OBJS)
+obj/%.o: src/%.c obj
+	$(CC) $(CFLAGS) -c $< -o $@ 
 
-.PHONY: all clean
+obj:
+	mkdir $@
+
+remove:
+	rm -rf obj
+
+clean: remove
+	rm -f libkronos.so
+
+.PHONY: all
