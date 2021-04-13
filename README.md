@@ -6,11 +6,12 @@ Kronos is a simple socket HTTP server written in C.
 1) Download the source code, e.g. using Git like so: 
 `git clone https://github.com/notdylanburns/kronos.git`.
 2) Change into the root directory of the repository.
-3) Run `make` followed by `sudo make install`.
-4) Now you can symlink `/usr/local/lib/libkronos.so` to `/usr/lib/libkronos.so` by running the following as root:
+3) Run `make`.
+4) Run `make install` as root.
+5) Now you can symlink `/usr/local/lib/libkronos.so` to `/usr/lib/libkronos.so` by running the following as root:
 `ln -s /usr/local/lib/libkronos.so /usr/lib/libkronos.so`
 Alternatively, you can append `/usr/local/lib/libkronos.so` to your `$LD_LIBRARY_PATH` environment variable if you prefer.
-5) `libkronos` is now installed globally.
+6) `libkronos` is now installed globally.
 
 ## Removing `libkronos`
 
