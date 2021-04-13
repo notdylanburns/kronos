@@ -114,7 +114,7 @@ void *handle_request(void *vargp) {
     if (h == NULL) {
         struct HTTPResponse *res = new_httpresponse();
         
-        set_status(res, "HTTP/1.1", NOT_FOUND, "Not Found");
+        set_status(res, "HTTP/1.1", STATUS_NOT_FOUND, "Not Found");
 
         /*res->server = calloc(strlen(SERVERNAME) + 1, 0);
         strcpy(res->server, SERVERNAME);*/
@@ -129,7 +129,7 @@ void *handle_request(void *vargp) {
     } else {
         struct HTTPResponse *res = new_httpresponse();
         
-        set_status(res, "HTTP/1.1", OK, "OK");
+        set_status(res, "HTTP/1.1", STATUS_OK, "OK");
 
         /*res->server = calloc(strlen(SERVERNAME) + 1, 0);
         strcpy(res->server, SERVERNAME);*/

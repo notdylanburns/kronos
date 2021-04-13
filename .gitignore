@@ -2,3 +2,5 @@ obj
 obj/*
 *.o
 libkronos.so*
+!*.*
+.vscode
