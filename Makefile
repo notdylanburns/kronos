@@ -37,4 +37,7 @@ uninstall:
 /usr/local/include/kronos:
 	mkdir /usr/local/include/kronos
 
+full: all uninstall install
+
+
 .PHONY: all
