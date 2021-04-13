@@ -3,3 +3,5 @@ obj/*
 *.o
 libkronos.so
 .vscode
+example1
+
