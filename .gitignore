@@ -1,7 +1,6 @@
 obj
 obj/*
 *.o
-libkronos.so
-libkronos.so*
+libkronos.*
 !*.*
 .vscode
