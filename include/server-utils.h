@@ -21,6 +21,6 @@
                                       fread(fileContents, 1, filesize, f); \
                                       set_content(res, mime, filesize, (Bytes)fileContents); \
                                   }
-#define RESOURCE(server, path, filepath) route(server, GET, path, &filepath)
+#define RESOURCE(server, path, name) route(server, GET, path, name)
 
 #endif

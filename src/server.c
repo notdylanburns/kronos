@@ -109,6 +109,7 @@ void *handle_request(void *vargp) {
     for (int i = 0; i < req->header_count; i++) {
         printf("%s: %s\n", req->headers[i]->key, req->headers[i]->value);
     }
+    printf("\n");
 
     RouteHandler h = get_handler(server, req->method, req->route);
     if (h == NULL) {

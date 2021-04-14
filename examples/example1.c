@@ -79,6 +79,14 @@ ROUTE(get_root) {
 
 STATIC(get_static, "example1.html", "text/html");
 
+/*
+    We're also going to host an image called image.jpg which we refer to in our HTML page.
+    We can define this handler using STATIC() in the same way.
+    Note that jpeg images use the "image/jpg" MIME type.
+*/
+
+STATIC(get_image, "image.jpg", "image/jpg");
+
 int main(int argc, char **argv) {
 
     // new_httpserver() returns a pointer to a HTTPServer struct or NULL if the process fails.
@@ -102,6 +110,13 @@ int main(int argc, char **argv) {
     */
     route(server, GET, "/", &get_root); // "localhost/" will be the web route that calls our get_root() function
     route(server, GET, "/static", &get_static); // "localhost/static" will display the same page, only using the handler we defined using STATIC()
+
+    /*
+        The RESOURCE() macro takes 3 arguments, which we'll call server, path and handler
+        It then makes a call to route() like so:
+            route(server, GET, path, &handler)
+    */
+    RESOURCE(server, "/image.jpg", &get_image);
 
     /*
         The run_server() function runs the server with two arguments:
