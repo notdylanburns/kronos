@@ -1,9 +1,15 @@
 CC := gcc
-CFLAGS := -Wall -Werror -fpic
+
+ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+INC_DIR := $(ROOT_DIR)/inc
+SRC_DIR := $(ROOT_DIR)/src
+OBJ_DIR := $(ROOT_DIR)/obj
+
+CFLAGS := -Wall -Werror -I$(INC_DIR) -fpic
 LDFLAGS := -lpthread -lm
 
-SRCS := $(wildcard src/*.c)
-OBJS := $(patsubst src/%.c, obj/%.o, $(SRCS)) 
+SRCS := $(wildcard $(SRC_DIR)/*.c)
+OBJS := $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRCS)) 
 TARGET := libkronos.so
 
 all: build remove
@@ -12,20 +18,20 @@ $(TARGET): $(OBJS)
 	$(CC) -shared -o $(TARGET) $^
 
 objects: $(OBJS)
-obj/%.o: src/%.c obj
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c $(OBJ_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@ 
 
-obj:
+$(OBJ_DIR):
 	mkdir $@
 
 remove:
-	rm -rf obj
+	rm -rf $(OBJ_DIR)
 
 clean: remove
 	rm -f libkronos.so
 
 install: /usr/local/include/kronos
-	cp include/* /usr/local/include/kronos/
+	cp $(INC_DIR)/* /usr/local/include/kronos/
 	cp $(TARGET) /usr/local/lib/
 	ln -s /usr/local/lib/$(TARGET) /usr/lib/$(TARGET)
 
@@ -38,6 +44,5 @@ uninstall:
 	mkdir /usr/local/include/kronos
 
 full: all uninstall install
-
 
 .PHONY: all

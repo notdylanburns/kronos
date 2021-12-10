@@ -1,9 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <kronos/http.h>
-#include <kronos/server.h>
-#include <kronos/server-utils.h>
+#include "../inc/kronos.h"
 
 /*  
     The following lines declare the get_root function using the ROUTE macro 
@@ -90,7 +88,9 @@ STATIC(get_image, "image.jpg", "image/jpg");
 int main(int argc, char **argv) {
 
     // new_httpserver() returns a pointer to a HTTPServer struct or NULL if the process fails.
-    HTTPServer *server = new_httpserver();
+    // It takes a set of flags as an argument, and these can be OR'ed together to combine their 
+    // effects
+    HTTPServer *server = new_httpserver(KRONOS_HTTP_VERBOSE | KRONOS_HTTP_PRINT_HEAD);
 
     // If the server failed to create:
     if (server == NULL) {
@@ -124,6 +124,6 @@ int main(int argc, char **argv) {
             2) The port number to run the server on
     */
 
-    run_server(server, 80);
+    run_server(server, "0.0.0.0", 80);
 
 }

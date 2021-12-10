@@ -1,9 +1,9 @@
-#ifndef SERVER_UTILS_H_GUARD_
-#define SERVER_UTILS_H_GUARD_
+#ifndef _KRONOS_SERVER_UTILS_H_GUARD_
+#define _KRONOS_SERVER_UTILS_H_GUARD_
 
 #include <stdio.h>
-#include "server.h"
-#include "http.h"
+#include "kronos-server.h"
+#include "kronos-http.h"
 
 #define ROUTE(name) void name(struct HTTPRequest *req, struct HTTPResponse *res)
 #define STATIC(name, filepath, mime) void name(struct HTTPRequest *req, struct HTTPResponse *res) { \

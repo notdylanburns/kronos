@@ -1,13 +1,16 @@
-#ifndef HTTP_H_GUARD_
-#define HTTP_H_GUARD_
+#ifndef _KRONOS_HTTP_H_GUARD_
+#define _KRONOS_HTTP_H_GUARD_
 
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <unistd.h>
 #include <math.h>
+#include <ctype.h>
+
+#include "kronos-error.h"
+#include "kronos-url.h"
+#include "kronos-stringstream.h"
 
 enum HTTPMethod { METHOD_NONE, GET, POST, PUT, DELETE };
 enum StatusCode {
@@ -87,11 +90,6 @@ enum StatusCode {
     STATUS_NETWORK_AUTHENTICATION_REQUIRED=511
 };
 
-struct URLParam {
-    char *key;
-    char *value;
-};
-
 extern struct URLParam *new_urlparam(char *key, char *value);
 extern void destroy_urlparam(struct URLParam *param);
 
@@ -109,20 +107,16 @@ typedef uint8_t * Bytes;
 struct HTTPRequest {
     enum HTTPMethod method;
     char *route;
-    struct URLParam **params;
+    struct URLParamMap *params;
     int paramCount;
     char *version;
-    /*char *host;
-    char *user_agent;
-    int content_length;
-    MimeType content_type;*/
     struct HTTPHeader **headers;
     int header_count;
     uint8_t *body;
 };
 
 extern struct HTTPRequest *new_httprequest();
-extern struct HTTPRequest *build_httprequest(int socketfd);
+extern KRONOS_ERROR build_httprequest(struct HTTPRequest **req, char *req_string, uint len);
 extern void destroy_httprequest(struct HTTPRequest *req);
 extern char *get_urlparam(struct HTTPRequest *req, char *key);
 

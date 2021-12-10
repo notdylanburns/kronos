@@ -1,0 +1,4 @@
+#ifndef _KRONOS_THREAD_H_GUARD_
+#define _KRONOS_THREAD_H_GUARD_
+
+#endif

@@ -1,10 +1,4 @@
-#include "../include/http.h"
-
-void bad_request(char *msg, struct HTTPRequest *req) {
-    destroy_httprequest(req);
-    perror(msg);
-    exit(EXIT_FAILURE);
-}
+#include "kronos-http.h"
 
 struct HTTPRequest *new_httprequest() {
     struct HTTPRequest *req = malloc(sizeof(struct HTTPRequest));
@@ -43,40 +37,6 @@ void destroy_httpheader(struct HTTPHeader *header) {
     header = NULL;
 }
 
-int extract_method(int socketfd, struct HTTPRequest *req) {
-    char nextByte;
-    char *method = malloc(1);
-    int methodLen = 0;
-    while (1) {
-        read(socketfd, &nextByte, 1);
-        if (nextByte == ' ') {
-            break;
-        } else {
-            methodLen++;
-            method = realloc(method, methodLen + 1);
-            method[methodLen - 1] = nextByte;
-            method[methodLen] = '\0';
-        }
-    }
-
-    if (strcmp(method, "GET") == 0) {
-        req->method = GET;
-    } else if (strcmp(method, "POST") == 0) {
-        req->method = POST;
-    } else if (strcmp(method, "PUT") == 0) {
-        req->method = PUT;
-    } else if (strcmp(method, "DELETE") == 0) {
-        req->method = DELETE;
-    } else { 
-        free(method);
-        return 1;
-    }
-
-    free(method);
-
-    return 0;
-}
-
 struct URLParam *new_urlparam(char *key, char *value) {
     struct URLParam *param = malloc(sizeof(struct URLParam));
     if (param == NULL) return NULL;
@@ -95,189 +55,220 @@ void destroy_urlparam(struct URLParam *param) {
     param = NULL;
 }
 
-void add_param(struct HTTPRequest *req, struct URLParam *param) {
-    req->paramCount++;
-    req->params = realloc(req->params, req->paramCount * sizeof(struct URLParam *));
-    req->params[req->paramCount - 1] = param;
-}
+KRONOS_ERROR extract_method(struct StringStream *ss, enum HTTPMethod *m) {
+    for (;;) {
+        char method_string[16] = {'\0'};
+        char c = get(ss);
+        switch (c) {
+            case ' ':
+                if (strcmp(method_string, "GET") == 0) {
+                    *m = GET;
+                } else if (strcmp(method_string, "POST") == 0) {
+                    *m = POST;
+                } else if (strcmp(method_string, "PUT") == 0) {
+                    *m = PUT;
+                } else if (strcmp(method_string, "DELETE") == 0) {
+                    *m = DELETE;
+                } else return KRONOS_BAD_REQUEST;
+                return KRONOS_SUCCESS;
+                break;
 
-char *readParamKey(int socketfd) {
-    char nextByte;
-    char *key = malloc(1);
-    int keyLen = 0;
-    while (1) {
-        read(socketfd, &nextByte, 1);
-        if (nextByte == ' ') {
-            return NULL;
-        } else if (nextByte == '=') {
-            break;
-        } else {
-            keyLen++;
-            key = realloc(key, keyLen + 1);
-            key[keyLen - 1] = nextByte;
-            key[keyLen] = '\0';
+            case '\0': 
+                return KRONOS_BAD_REQUEST;
+                break;
+
+            default:
+                if (!isalpha(c)) return KRONOS_BAD_REQUEST;
+                strcat(method_string, &c);
         }
     }
-    return key;
 }
 
-int readParamValue(int socketfd, struct URLParam *param) {
-    char nextByte;
-    char *value = malloc(1);
-    int valueLen = 0;
-    while (1) {
-        read(socketfd, &nextByte, 1);
-        if (nextByte == ' ') {
-            param->value = value;
-            return 0; //params done
-        } else if (nextByte == '&') {
-            param->value = value;
-            return 1; //more params
-        } else {
-            valueLen++;
-            value = realloc(value, valueLen + 1);
-            value[valueLen - 1] = nextByte;
-            value[valueLen] = '\0';
+KRONOS_ERROR extract_route(struct StringStream *ss, char **r) {
+    for (;;) {
+        int len = 0;
+        char *route = NULL;
+        char c = get(ss);
+        switch (c) {
+            case ' ':
+            case '?':
+                *r = route; 
+                return KRONOS_SUCCESS;
+                break;
+
+            case '\0': 
+                free(route);
+                return KRONOS_BAD_REQUEST;
+                break;
+
+            default:
+                if (!isalpha(c)) {
+                    free(route);
+                    return KRONOS_BAD_REQUEST;
+                }
+                char *tmp = realloc(route, ++len);
+                if (tmp == NULL) {
+                    free(route);
+                    return KRONOS_NOMEM;
+                }
+                route = tmp;
         }
     }
-    return 0;
 }
 
-int extract_params(int socketfd, struct HTTPRequest *req) {
-    char *key;
-    while (1) {
-        key = readParamKey(socketfd);
-        if (key == NULL) {
-            break;
-        };
-        struct URLParam *p = new_urlparam(key, NULL);
-        int moreParams = readParamValue(socketfd, p);
-        add_param(req, p);
-        
-        if (!moreParams) break; 
+KRONOS_ERROR extract_params(struct StringStream *ss, struct URLParamMap **params) {
+    *params = new_param_map(0, NULL);
+    if (*params == NULL) return KRONOS_NOMEM;
+    
+    char pairsremain = 1;
+    while (pairsremain) {
+        int keylen = 0;
+        char inkey = 1, isfirst = 1;
+        char *key = NULL;
+        char c;
+        while (inkey) {
+            c = get(ss);
+            switch (c) {
+                case '=':
+                    inkey = 1; 
+                    return KRONOS_SUCCESS;
+                    break;
+                
+                case ' ':
+                    if (isfirst)
+                        return KRONOS_SUCCESS; 
+                    free(key);
+                    return KRONOS_BAD_REQUEST;
+                    break;
+
+                case '\0': 
+                    free(key);
+                    return KRONOS_BAD_REQUEST;
+                    break;
+
+                default:
+                    if (!isalpha(c)) return KRONOS_BAD_REQUEST;
+                    char *tmp = realloc(key, ++keylen);
+                    if (tmp == NULL) {
+                        free(key);
+                        return KRONOS_NOMEM;
+                    }
+                    key = tmp;
+            }
+        }
+        int vallen = 0; 
+        char inval = 1;
+        char *value = NULL;
+        while (inval) {
+            c = get(ss);
+            switch (c) {
+                case ' ':
+                    pairsremain = 0;
+                    inval = 0;
+                    break;
+
+                case '&':
+                    inval = 0;
+                    break;
+
+                case '\0':
+                    free(key);
+                    free(value);
+                    return KRONOS_BAD_REQUEST;
+                    break;
+
+                default:
+                    if (!isalpha(c)) return KRONOS_BAD_REQUEST;
+                    char *tmp = realloc(value, ++vallen);
+                    if (tmp == NULL) {
+                        free(key);
+                        free(value);
+                        return KRONOS_NOMEM;
+                    }
+                    value = tmp;
+
+            }
+        }
+        struct URLParam *up = new_urlparam(key, value);
+        free(key);
+        free(value);
+        if (up == NULL) {
+            return KRONOS_NOMEM;
+        }
+
+        add_url_param(*params, up);
     }
-    return 0;
+    return KRONOS_SUCCESS;
 }
 
-int extract_route(int socketfd, struct HTTPRequest *req) {
-    char nextByte;
-    char *route = malloc(1);
-    int routeLen = 0;
-    while (1) {
-        read(socketfd, &nextByte, 1);
-        if (nextByte == ' ') {
-            break;
-        } else if (nextByte == '?') {
-            extract_params(socketfd, req);
-            break;
-        } else {
-            routeLen++;
-            route = realloc(route, routeLen + 1);
-            route[routeLen - 1] = nextByte;
-            route[routeLen] = '\0';
+KRONOS_ERROR extract_version(struct StringStream *ss, char **v) {
+    for (;;) {
+        int len = 0;
+        char *version = NULL;
+        char c = get(ss);
+        switch (c) {
+            case ' ':
+                *v = version; 
+                return KRONOS_SUCCESS;
+                break;
+
+            case '\0': 
+                free(version);
+                return KRONOS_BAD_REQUEST;
+                break;
+
+            default: ;
+                char *tmp = realloc(version, ++len);
+                if (tmp == NULL) {
+                    free(version);
+                    return KRONOS_NOMEM;
+                }
+                version = tmp;
         }
     }
-
-    req->route = route;
-    return 0;
-
 }
 
-int extract_version(int socketfd, struct HTTPRequest *req) {
-    char nextByte;
-    char *version = malloc(1);
-    int versionLen = 0;
-    while (1) {
-        read(socketfd, &nextByte, 1);
-        if (nextByte == '\r') {
-            read(socketfd, &nextByte, 1); //discard newline
-            break;
-        } else {
-            versionLen++;
-            version = realloc(version, versionLen + 1);
-            version[versionLen - 1] = nextByte;
-            version[versionLen] = '\0';
-        }
+KRONOS_ERROR build_httprequest(struct HTTPRequest **req, char *req_string, uint len) {
+    *req = new_httprequest();
+    if (*req == NULL) return KRONOS_NOMEM;
+
+    struct StringStream *ss = new_stringstream(req_string, len);
+    if (ss == NULL) {
+        destroy_httprequest(*req);
+        return KRONOS_NOMEM;
     }
 
-    req->version = version;
-    return 0;
-}
-
-char *readKey(int socketfd) {
-    char nextByte;
-    char *key = malloc(1);
-    if (key == NULL) return NULL;
-    int keyLen = 0;
-    while (1) {
-        read(socketfd, &nextByte, 1);
-        if (nextByte == ':') {
-            read(socketfd, &nextByte, 1); //skip whitespace
-            break;
-        } else {
-            keyLen++;
-            key = realloc(key, keyLen + 1);
-            key[keyLen - 1] = nextByte;
-            key[keyLen] = '\0';
-            if (strcmp(key, "\r\n") == 0) return NULL;
-        }
+    int err;
+    if (IS_ERROR(extract_method(ss, &((*req)->method)))) {
+        destroy_stringstream(ss);
+        destroy_httprequest(*req);
+        return err;
     }
 
-    return key;
-}
-
-char *readValue(int socketfd) {
-    char nextByte;
-    char *value = malloc(1);
-    if (value == NULL) return NULL;
-    value[0] = '\0';
-    int valueLen = 0;
-    while (1) {
-        read(socketfd, &nextByte, 1);
-        if (nextByte == '\r') {
-            read(socketfd, &nextByte, 1); //discard newline
-            break;
-        } else {
-            valueLen++;
-            value = realloc(value, valueLen + 1);
-            value[valueLen - 1] = nextByte;
-            value[valueLen] = '\0';
-        }
+    if (IS_ERROR(extract_route(ss, &((*req)->route)))) {
+        destroy_stringstream(ss);
+        destroy_httprequest(*req);
+        return err;
     }
 
-    return value;
-}
+    if (IS_ERROR(extract_params(ss, &((*req)->params)))) {
+        destroy_stringstream(ss);
+        destroy_httprequest(*req);
+        return err;
+    }
 
-struct HTTPRequest *build_httprequest(int socketfd) {
-    struct HTTPRequest *req = new_httprequest();
-    if (req == NULL) return NULL;
-
-    if (extract_method(socketfd, req) > 0) {
-        bad_request("Failed to extract method from HTTP request", req);
-    } else if (extract_route(socketfd, req) > 0) {
-        bad_request("Failed to extract route from HTTP request", req);
-    } else if (extract_version(socketfd, req) > 0) {
-        bad_request("Failed to extract version from HTTP request", req);
-    } 
+    if (IS_ERROR(extract_version(ss, &((*req)->version)))) {
+        destroy_stringstream(ss);
+        destroy_httprequest(*req);
+        return err;
+    }
 
     while (1) {
-        char *key = readKey(socketfd);
+        /*char *key = readKey(socketfd);
         if (key == NULL) {
             //End of headers
             break;
         }
-
-        /*if (strcmp(key, "Host:") == 0) {
-            req->host = readValue(socketfd);
-        } else if (strcmp(key, "User-Agent:") == 0) {
-            req->user_agent = readValue(socketfd);
-        } else if (strcmp(key, "Content-Length:") == 0) {
-            req->content_length = atoi(readValue(socketfd));
-        } else if (strcmp(key, "Content-Type:") == 0) {
-            req->content_type = readValue(socketfd);
-        } else {
-            readValue(socketfd);
-        }*/
 
         char *value = readValue(socketfd);
         struct HTTPHeader *header = new_httpheader(key, value);
@@ -289,33 +280,17 @@ struct HTTPRequest *build_httprequest(int socketfd) {
         req->header_count++;
         req->headers = realloc(req->headers, req->header_count * sizeof(struct HTTPHeader *));
         if (req->headers == NULL) return NULL;
-        req->headers[req->header_count - 1] = header;
+        req->headers[req->header_count - 1] = header;*/
     }
 
-    /*if (req->content_length == 0) {
-        return req;
-    } else {
-        //char continue100[13] = "100 Continue";
-        //send(socketfd, continue100, 13, 0);
-
-        req->body = calloc(req->content_length + 1, 1);
-        read(socketfd, req->body, req->content_length);
-
-    }*/
-
-    return req;
+    return KRONOS_SUCCESS;
 
 }
 
-char *get_urlparam(struct HTTPRequest *req, char *key) {
-    for (int i = 0; i < req->paramCount; i++) {
-        if (strcmp(req->params[i]->key, key) == 0) {
-            char *returnVal = calloc(strlen(req->params[i]->value) + 1, 1);
-            strcpy(returnVal, req->params[i]->value);
-            return returnVal;
-        }
-    }
-    return NULL;
+char *get_param(struct HTTPRequest *req, char *key) {
+    struct URLParam *up = get_url_param(req->params, key);
+    if (up == NULL) return NULL;
+    return up->value;
 }
 
 void destroy_httprequest(struct HTTPRequest *req) {
@@ -325,7 +300,7 @@ void destroy_httprequest(struct HTTPRequest *req) {
     req->version = NULL;
     free(req->body);
     req->body = NULL;
-    for (int i = 0; i < req->paramCount; i++) destroy_urlparam(req->params[i]);
+    for (int i = 0; i < req->paramCount; i++) destroy_param_map(req->params);
     free(req->params);
     req->params = NULL;
     for (int i = 0; i < req->header_count; i++) destroy_httpheader(req->headers[i]);
@@ -339,10 +314,6 @@ struct HTTPResponse *new_httpresponse() {
     res->version = NULL;
     res->status = STATUS_NONE;
     res->status_msg = NULL;
-    /*res->date = NULL;
-    res->server = NULL;
-    res->content_type = NULL;
-    res->content_length = 0;*/
     res->body = NULL;
     res->headers = NULL;
     res->header_count = 0;
